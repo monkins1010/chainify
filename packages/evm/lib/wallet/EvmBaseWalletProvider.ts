@@ -3,6 +3,7 @@ import { NodeError, ReplaceFeeInsufficientError } from '@chainify/errors';
 import { AddressType, Asset, AssetTypes, BigNumber, FeeType, NamingProvider, Network, Transaction } from '@chainify/types';
 import { ensure0x, remove0x } from '@chainify/utils';
 import { Signer } from '@ethersproject/abstract-signer';
+import { BigNumber as EthersBigNumber } from '@ethersproject/bignumber';
 import { BaseProvider, TransactionRequest as EthersTxRequest } from '@ethersproject/providers';
 import { ERC20__factory } from '../typechain';
 import { EthereumTransactionRequest, EthersTransactionResponse } from '../types';
@@ -126,7 +127,7 @@ export abstract class EvmBaseWalletProvider<Provider extends BaseProvider, S ext
         return this.chainProvider.getNetwork();
     }
 
-    public async estimateGas(txRequest: EthersTxRequest) {
+    public async estimateGas(txRequest: EthersTxRequest): Promise<EthersBigNumber> {
         try {
             const estimation = await this.chainProvider.getProvider().estimateGas(txRequest);
             // do not add gas limit margin for sending native asset

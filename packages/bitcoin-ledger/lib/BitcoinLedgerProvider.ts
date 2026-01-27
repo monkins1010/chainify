@@ -6,9 +6,21 @@ import { AddressType, Asset, BigNumber } from '@chainify/types';
 import { padHexStart } from '@chainify/utils';
 import HwAppBitcoin from '@ledgerhq/hw-app-btc';
 import { BIP32Interface, fromPublicKey } from 'bip32';
-import { address, Psbt, PsbtTxInput, script, Transaction as BitcoinJsTransaction } from 'bitcoinjs-lib';
+import { address, Psbt, script, Transaction as BitcoinJsTransaction } from 'bitcoinjs-lib';
 import { CreateBitcoinLedgerApp } from './CreateBitcoinLedgerApp';
 import { BitcoinLedgerProviderOptions } from './types';
+
+// Extended types to include properties that exist at runtime but are missing from bip174 2.x type definitions
+interface PsbtTxInputExtended {
+    hash: Buffer;
+    index: number;
+}
+
+interface PsbtTxOutputExtended {
+    address: string | undefined;
+    script: Buffer;
+    value: number;
+}
 
 export class BitcoinLedgerProvider extends BitcoinBaseWalletProvider {
     private _ledgerProvider: LedgerProvider<HwAppBitcoin>;
@@ -77,20 +89,24 @@ export class BitcoinLedgerProvider extends BitcoinBaseWalletProvider {
         const psbt = Psbt.fromBase64(data, { network: this._network });
         const app = await this._ledgerProvider.getApp();
 
-        const inputsArePubkey = psbt.txInputs.every((input, index) =>
+        // Cast to extended types that include runtime properties missing from bip174 2.x types
+        const txInputs = psbt.txInputs as unknown as PsbtTxInputExtended[];
+        const txOutputs = psbt.txOutputs as unknown as PsbtTxOutputExtended[];
+
+        const inputsArePubkey = txInputs.every((input, index) =>
             ['witnesspubkeyhash', 'pubkeyhash', 'p2sh-witnesspubkeyhash'].includes(psbt.getInputType(index))
         );
 
-        if (inputsArePubkey && psbt.txInputs.length !== inputs.length) {
+        if (inputsArePubkey && txInputs.length !== inputs.length) {
             throw new Error('signPSBT: Ledger must sign all inputs when they are all regular pub key hash payments.');
         }
 
         if (inputsArePubkey) {
             const ledgerInputs = await this.getLedgerInputs(
-                psbt.txInputs.map((input) => ({ txid: input.hash.reverse().toString('hex'), vout: input.index }))
+                txInputs.map((input) => ({ txid: input.hash.reverse().toString('hex'), vout: input.index }))
             );
 
-            const getInputDetails = async (input: PsbtTxInput) => {
+            const getInputDetails = async (input: PsbtTxInputExtended) => {
                 const txHex = await this.chainProvider.getProvider().getRawTransactionByHash(input.hash.reverse().toString('hex'));
                 const tx = BitcoinUtils.decodeRawTransaction(txHex, this._network);
                 const address = tx.vout[input.index].scriptPubKey.addresses[0];
@@ -98,11 +114,11 @@ export class BitcoinLedgerProvider extends BitcoinBaseWalletProvider {
                 return walletAddress;
             };
 
-            const inputDetails = await Promise.all(psbt.txInputs.map(getInputDetails));
+            const inputDetails = await Promise.all(txInputs.map(getInputDetails));
             const paths = inputDetails.map((i) => i.derivationPath);
             const outputScriptHex = app
                 .serializeTransactionOutputs({
-                    outputs: psbt.txOutputs.map((output) => ({
+                    outputs: txOutputs.map((output) => ({
                         script: output.script,
                         amount: this.getAmountBuffer(output.value),
                     })),
@@ -112,7 +128,7 @@ export class BitcoinLedgerProvider extends BitcoinBaseWalletProvider {
                 .toString('hex');
             const isSegwit = [BitcoinTypes.AddressType.BECH32, BitcoinTypes.AddressType.P2SH_SEGWIT].includes(this._addressType);
             const changeAddress = await this.findAddress(
-                psbt.txOutputs.map((output) => output.address),
+                txOutputs.map((output) => output.address),
                 true
             );
 
@@ -157,7 +173,7 @@ export class BitcoinLedgerProvider extends BitcoinBaseWalletProvider {
             const walletAddress = await this.getDerivationPathAddress(input.derivationPath);
             walletAddresses.push(walletAddress);
             const { witnessScript, redeemScript } = psbt.data.inputs[input.index];
-            const { hash: inputHash, index: inputIndex } = psbt.txInputs[input.index];
+            const { hash: inputHash, index: inputIndex } = txInputs[input.index];
             const outputScript = witnessScript || redeemScript;
             const inputTxHex = await this.chainProvider.getProvider().getRawTransactionByHash(inputHash.reverse().toString('hex'));
             const ledgerInputTx = app.splitTransaction(inputTxHex, true);

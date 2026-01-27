@@ -8,6 +8,33 @@
 \____/_/ /_/\__,_/_/_/ /_/_/_/  \__, /  
                                /____/   
 </pre>
+
+## Verus Fork
+
+This is a fork of Chainify that adds support for **Verus Coin (VRSC)**. 
+
+### Key Modifications
+
+- Added `@chainify/verus` package for Verus blockchain support
+- Uses custom `@bitgo/utxo-lib` from [VerusCoin/BitGoJS](https://github.com/VerusCoin/BitGoJS.git#utxo-lib-verus)
+- Uses custom `bitcoin-ops` from [VerusCoin/bitcoin-ops](https://github.com/VerusCoin/bitcoin-ops.git#master)
+
+### Build Fixes Applied (Jan 2026)
+
+The following TypeScript compatibility fixes were applied:
+
+1. **packages/bitcoin-ledger/lib/BitcoinLedgerProvider.ts**
+   - Fixed `bip174` 2.x type compatibility issues where `PsbtTxInput.index`, `PsbtTxOutput.script` and `PsbtTxOutput.value` properties were missing from type definitions
+   - Added extended type interfaces with proper casting
+
+2. **packages/evm/lib/wallet/EvmBaseWalletProvider.ts**
+   - Fixed TypeScript inference error for `estimateGas` method
+   - Added explicit `Promise<EthersBigNumber>` return type to resolve nested `@ethersproject/bignumber` reference issue
+
+3. **packages/types/package.json**
+   - Changed `@liquality/cryptoassets` to use local link instead of git reference
+
+---
                                
 Chainify is a flexible, modular library for developing disintermediated solutions across different blockchains.
 
@@ -32,6 +59,7 @@ The build system is using [Turborepo](https://turborepo.org/)
 | [@chainify/terra](./packages/terra)                   |          [![Chainify](https://img.shields.io/npm/v/@chainify/terra?style=for-the-badge)](https://npmjs.com/package/@chainify/terra)          |
 | [@chainify/types](./packages/types)                   |          [![Chainify](https://img.shields.io/npm/v/@chainify/types?style=for-the-badge)](https://npmjs.com/package/@chainify/types)          |
 | [@chainify/utils](./packages/utils)                   |          [![Chainify](https://img.shields.io/npm/v/@chainify/utils?style=for-the-badge)](https://npmjs.com/package/@chainify/utils)          |
+| [@chainify/verus](./packages/verus)                   |          *Local package - Verus Coin support*          |
 
 ### Install dependencies
 ```bash
